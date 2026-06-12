@@ -3,6 +3,8 @@ import fs from "fs";
 
 const app = express();
 
+app.use(express.json()) // middleware to parse the request data.
+
 const getTodos = async () => {
     const data = await fs.readFile("./data.json", "utf8");
     return JSON.parse(data);
