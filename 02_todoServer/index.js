@@ -1,92 +1,152 @@
-import express from "express";
-import fs from "fs";
+const express = require("express");
+const fs = require("fs/promises");
 
 const app = express();
 
-app.use(express.json()) // middleware to parse the request data.
+app.use(express.json());
 
 const getTodos = async () => {
-    const data = await fs.readFile("./data.json", "utf8");
+    const data = await fs.readFile('./data.json', "utf8");
     return JSON.parse(data);
 };
 
+// Save todos
 const saveTodos = async (todos) => {
     await fs.writeFile(
-        "./data.json",
+        './data.json',
         JSON.stringify(todos)
     );
 };
 
+app.get("/todos", async (req, res) => {
+    try {
+        const todos = await getTodos();
 
-app.get("/todos", (req, res) => {
-    const todos = getTodos();
-
-    res.json(
-        Object.values(todos)
-    );
+        res.status(200).json(
+            Object.values(todos)
+        );
+    } catch (error) {
+        res.status(500).json({
+            message: "Failed to fetch todos"
+        });
+    }
 });
 
+app.post("/todos", async (req, res) => {
+    try {
+        const { todo } = req.body;
 
-app.post("/todos", (req, res) => {
-    const { data } = req.body;
+        if (!todo) {
+            return res.status(400).json({
+                message: "Todo is required"
+            });
+        }
 
-    const todos = getTodos();
+        const todos = await getTodos();
 
-    const id = Date.now().toString();
+        const id = Date.now().toString();
 
-    const newTodo = {
-        id,
-        todo: data,
-        completed: false,
-    };
+        const newTodo = {
+            id,
+            todo,
+            completed: false
+        };
 
-    todos[id] = newTodo;
+        todos[id] = newTodo;
 
-    saveTodos(todos);
+        await saveTodos(todos);
 
-    res.json(newTodo);
+        res.status(201).json(newTodo);
+    } catch (error) {
+        res.status(500).json({
+            message: "Failed to create todo"
+        });
+    }
 });
 
+app.patch("/todos/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { todo } = req.body;
 
-app.patch("/todos/:id", (req, res) => {
-    const todos = getTodos();
+        const todos = await getTodos();
 
-    const { data } = req.body;
-    const todo = todos[req.params.id];
+        if (!todos[id]) {
+            return res.status(404).json({
+                message: "Todo not found"
+            });
+        }
 
-    todo.todo = data;
+        if (!todo) {
+            return res.status(400).json({
+                message: "Todo is required"
+            });
+        }
 
-    saveTodos(todos);
+        todos[id].todo = todo;
 
-    res.json(todo);
+        await saveTodos(todos);
+
+        res.status(200).json(todos[id]);
+    } catch (error) {
+        res.status(500).json({
+            message: "Failed to update todo"
+        });
+    }
 });
 
+app.patch("/todos/:id/toggle", async (req, res) => {
+    try {
+        const { id } = req.params;
 
-app.patch("/todos/:id/toggle", (req, res) => {
-    const todos = getTodos();
+        const todos = await getTodos();
 
-    const todo = todos[req.params.id];
+        if (!todos[id]) {
+            return res.status(404).json({
+                message: "Todo not found"
+            });
+        }
 
-    todo.completed = !todo.completed;
+        todos[id].completed = !todos[id].completed;
 
-    saveTodos(todos);
+        await saveTodos(todos);
 
-    res.json(todo);
+        res.status(200).json(todos[id]);
+    } catch (error) {
+        res.status(500).json({
+            message: "Failed to toggle todo"
+        });
+    }
 });
 
+app.delete("/todos/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
 
-app.delete("/todos/:id", (req, res) => {
-    const todos = getTodos();
+        const todos = await getTodos();
 
-    delete todos[req.params.id];
+        if (!todos[id]) {
+            return res.status(404).json({
+                message: "Todo not found"
+            });
+        }
 
-    saveTodos(todos);
+        delete todos[id];
 
-    res.json({
-        message: "Todo deleted"
-    });
+        await saveTodos(todos);
+
+        res.status(200).json({
+            message: "Todo deleted"
+        });
+    } catch (error) {
+        res.status(500).json({
+            message: "Failed to delete todo"
+        });
+    }
 });
 
-app.listen(3000, () => {
-    console.log(`Running on http://localhost:${PORT}`);
+const PORT = 3000;
+
+app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
 });
